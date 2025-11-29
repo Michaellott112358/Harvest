@@ -3,7 +3,14 @@
 #include <ctime>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
+//data container for individual platforms
+struct platformData {
+    float x, y;
+    bool hasGoldenApple;
+    bool hasApple;
+};
 
 int main()
 {
@@ -11,9 +18,12 @@ int main()
     std::srand(static_cast<unsigned>(std::time(nullptr)));
 
     //initialize window size variables and establish opengl context
-    unsigned int screenWidth = sf::VideoMode::getDesktopMode().width;
-    unsigned int screenHeight = sf::VideoMode::getDesktopMode().height;
-    sf::RenderWindow window(sf::VideoMode(screenWidth, screenHeight), "Game", sf::Style::Fullscreen);
+    //unsigned int screenWidth = sf::VideoMode::getDesktopMode().width;
+    //unsigned int screenHeight = sf::VideoMode::getDesktopMode().height;
+
+    unsigned int screenWidth = 1600;
+    unsigned int screenHeight = 1400;
+    sf::RenderWindow window(sf::VideoMode(screenWidth, screenHeight), "Game");
     
     //Initlaize bucket
     sf::Texture bucketTexture;
@@ -54,7 +64,7 @@ int main()
         return -1;
     }
     sf::Sprite background(backgroundTexture);
-    background.setScale(4.f, 4.f);
+    background.setScale(7.f, 7.f);
     background.setPosition(0, 0);
 
     //Initialize Platforms
@@ -64,7 +74,13 @@ int main()
     }
     sf::Sprite platform(platformTexture);
     platform.setScale(1.8f, 1.8f);
-    
+
+    //vector of all platforms
+    std::vector<platformData> platforms(15);
+    for (size_t i = 0; i < platforms.size(); i++) {
+        platforms[i].x = rand() % screenWidth - (.2 * screenWidth);
+        platforms[i].y = rand() % screenHeight - (.1 * screenHeight);
+    }
 
     //Initialize fonts
     sf::Font scoreFont; 
@@ -85,7 +101,7 @@ int main()
     }
 
     //initalize score elements
-    int score = 0;
+    int score = 50;
     sf::Text scoreText; 
     scoreText.setFont(scoreFont);
     scoreText.setCharacterSize(48);
@@ -128,6 +144,9 @@ int main()
         //exit game if escape is pressed
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape)) {
             window.close();
+        }
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::C)) {
+            gameStage = 4;
         }
 
         switch (gameStage){
@@ -200,7 +219,9 @@ int main()
                 //clear window and draw elements
                 window.clear(sf::Color::White);
                 window.draw(bucket);
-                window.draw(apple);
+                if (!mrBeanActive) {
+                    window.draw(apple);
+                }
                 window.draw(mrBean);
                 window.draw(scoreText);
                 window.display();
@@ -212,9 +233,9 @@ int main()
                     //once this phase is over remove the bucket and set the background, move to next phase
                     bucket.setScale(1.f,1.f);
                     bucket.setPosition(-500, -500);
-                    mrBean.setScale(2.f, 2.f);
+                    mrBean.setScale(4.f, 4.f);
                     mrBean.setPosition(screenWidth / 2, 0.f - mrBean.getGlobalBounds().height);
-                    mrBeanSpeed = .1f;
+                    mrBeanSpeed = .3f;
                     window.clear();
                     window.draw(background);
                     window.draw(bucket);
@@ -231,12 +252,12 @@ int main()
                 window.draw(bucket);
                 window.display();
                 break;
-            //second scene jumping escape segment
+            //transition mr bean falling
             case 3:
                 mrBean.move(0.f, mrBeanSpeed);
                 if (mrBean.getPosition().y > screenHeight) {
                     mrBean.setPosition(mrBean.getPosition().x, screenHeight - (1.01f * mrBean.getGlobalBounds().height));
-                    mrBeanSpeed = .1f;
+                    mrBeanSpeed = 1.4f;
                     gameStage = 4;
                 }
                 window.clear();
@@ -244,7 +265,7 @@ int main()
                 window.draw(mrBean);
                 window.display();
                 break;
-            //Lose stage 2
+            //jumping game phase
             case 4:
                 //handle movement input
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
@@ -254,30 +275,15 @@ int main()
                     mrBean.move(mrBeanSpeed, 0.f);
                 }
 
-
-
                 window.clear();
                 window.draw(background);
                 window.draw(mrBean);
 
-
-                platform.setPosition(300, 900);
-                window.draw(platform);
-
-                platform.setPosition(700, 800);
-                window.draw(platform);
-
-                platform.setPosition(300, 400);
-                window.draw(platform);
-
-                platform.setPosition(900, 500);
-                window.draw(platform);
-
-                platform.setPosition(300, 900);
-                window.draw(platform);
-
-                platform.setPosition(300, 900);
-                window.draw(platform);
+                for (auto& platformD : platforms) {
+                    platform.setPosition(platformD.x, platformD.y);
+                    window.draw(platform);
+                }
+                if(mrBean.getGlobalBounds().intersects(platform))
 
                 window.display();
                 break;
