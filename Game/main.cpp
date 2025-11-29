@@ -5,26 +5,17 @@
 #include <string>
 #include <vector>
 
-//data container for individual platforms
-struct platformData {
-    float x, y;
-    bool hasGoldenApple;
-    bool hasApple;
-};
-
 int main()
 {
     //seed random
     std::srand(static_cast<unsigned>(std::time(nullptr)));
 
-    //initialize window size variables and establish opengl context
-    //unsigned int screenWidth = sf::VideoMode::getDesktopMode().width;
-    //unsigned int screenHeight = sf::VideoMode::getDesktopMode().height;
+    //initialize window size variables and establish render context
+    unsigned int screenWidth = 900;
+    unsigned int screenHeight = 900;
+    sf::RenderWindow window(sf::VideoMode(screenWidth, screenHeight), "Harvest");
+    window.setFramerateLimit(60);
 
-    unsigned int screenWidth = 1600;
-    unsigned int screenHeight = 1400;
-    sf::RenderWindow window(sf::VideoMode(screenWidth, screenHeight), "Game");
-    
     //Initlaize bucket
     sf::Texture bucketTexture;
     if (!bucketTexture.loadFromFile("assets/bucket.png")) {
@@ -33,9 +24,9 @@ int main()
     sf::Sprite bucket(bucketTexture);
     unsigned int bucketWidth = bucket.getGlobalBounds().width;
     unsigned int bucketHeight = bucket.getGlobalBounds().height;
-    bucket.setScale(5.f, 5.f);
-    bucket.setPosition(screenWidth / 2, screenHeight - (6 * bucketHeight));
-    float bucketSpeed = 1.0f;
+    bucket.setScale(3.f, 3.f);
+    bucket.setPosition(screenWidth / 2, screenHeight - (3.1f * bucketHeight));
+    float bucketSpeed = 6.f;
 
     //Initialize apple
     sf::Texture appleTexture;
@@ -43,10 +34,10 @@ int main()
         return -1;
     }
     sf::Sprite apple(appleTexture);
-    apple.setScale(3.f, 3.f);
+    apple.setScale(2.f, 2.f);
     int appleRandOffset = screenWidth - apple.getGlobalBounds().width;
     apple.setPosition(static_cast<float>(std::rand() % appleRandOffset), 0.f - apple.getGlobalBounds().height);
-    float appleSpeed = .2f;
+    float appleSpeed = 7.f;
 
     //Initialize mrBean 
     sf::Texture mrBeanTexture;
@@ -54,10 +45,11 @@ int main()
         return -1;
     }
     sf::Sprite mrBean(mrBeanTexture);
-    mrBean.setScale(1.7f, 1.7f);
-    mrBean.setPosition(screenWidth / 2 , 0.f - mrBean.getGlobalBounds().height);
-    float mrBeanSpeed = .05f;
-    
+    mrBean.setScale(1.5f, 1.5f);
+    mrBean.setPosition(screenWidth / 2, 0.f - mrBean.getGlobalBounds().height);
+    float mrBeanSpeed = 3.f;
+    float mrBeanJumpSpeed = 0.f;
+
     //Initialize Background
     sf::Texture backgroundTexture;
     if (!backgroundTexture.loadFromFile("assets/background.png")) {
@@ -72,14 +64,17 @@ int main()
     if (!platformTexture.loadFromFile("assets/platform.png")) {
         return -1;
     }
-    sf::Sprite platform(platformTexture);
-    platform.setScale(1.8f, 1.8f);
-
-    //vector of all platforms
-    std::vector<platformData> platforms(15);
-    for (size_t i = 0; i < platforms.size(); i++) {
-        platforms[i].x = rand() % screenWidth - (.2 * screenWidth);
-        platforms[i].y = rand() % screenHeight - (.1 * screenHeight);
+    std::vector<sf::Sprite> platforms(10, sf::Sprite(platformTexture));
+    platforms[0].setScale(1.f, 1.f);
+    float platformWidth = platforms[0].getGlobalBounds().width;
+    float platformHeight = platforms[0].getGlobalBounds().height;
+    platforms[0].setPosition((screenWidth / 2) - (platformWidth / 2), screenHeight - (2 * platformHeight));
+    for (size_t i = 1; i < platforms.size(); i++) {
+        
+        platforms[i].setScale(1.f, 1.f);
+        float platformX = rand() % static_cast<int>(screenWidth - platformWidth);
+        float platformY = screenHeight - ((i + 1) * 75);
+        platforms[i].setPosition(platformX, platformY);
     }
 
     //Initialize fonts
@@ -101,7 +96,7 @@ int main()
     }
 
     //initalize score elements
-    int score = 50;
+    int score = 0;
     sf::Text scoreText; 
     scoreText.setFont(scoreFont);
     scoreText.setCharacterSize(48);
@@ -123,12 +118,10 @@ int main()
     winText.setPosition((screenWidth / 4), screenHeight / 2);
 
     //initialize game control variable
-    int gameStage = 1;
+    int gameStage = 3;
     bool mrBeanActive = false;
-
-    int time = 5000;
+    int time = 180;
     float bucketScale = 5.f;
-
 
     //game loop 
     while (window.isOpen())
@@ -140,15 +133,11 @@ int main()
             if (event.type == sf::Event::Closed)
                 window.close();
         }
-        
         //exit game if escape is pressed
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape)) {
             window.close();
         }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::C)) {
-            gameStage = 4;
-        }
-
+       
         switch (gameStage){
             //Starting stage, apple catch segment
             case 1:
@@ -159,7 +148,6 @@ int main()
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
                     bucket.move(bucketSpeed, 0.f);
                 }
-
                 //bounds check for left and right wall on bucket
                 if (bucket.getPosition().x < 0) {
                     bucket.setPosition(0, bucket.getPosition().y);
@@ -168,33 +156,32 @@ int main()
                     bucket.setPosition(screenWidth - bucket.getGlobalBounds().width, bucket.getPosition().y);
                 }
 
-                //move the apple
-                apple.move(0.f, appleSpeed);
+                //when active move mr bean
+                if (!mrBeanActive) {
+                    //move the apple
+                    apple.move(0.f, appleSpeed);
+                }
+                else {
+                    mrBean.move(0.f, mrBeanSpeed);
+                }
 
                 //bounds check for apple and bucket, reset apple on contact
-                if (apple.getGlobalBounds().intersects(bucket.getGlobalBounds())) {
+                if ((apple.getGlobalBounds().intersects(bucket.getGlobalBounds())) && (apple.getPosition().y < bucket.getPosition().y)) {
                     score++;
-                    apple.setPosition(static_cast<float>(std::rand() % appleRandOffset), 0.7f);
+                    //activate mrBean randomly once score goes above 30
+                    if (score > 20) {
+                        //if (std::rand() % (50 - score) + 1 == 1) {
+                            mrBeanActive = true;
+                            apple.setPosition(-500.f,-500.f);
+                    }else {
+                            apple.setPosition(static_cast<float>(std::rand() % appleRandOffset), 0.7f);
+                    }
                 }
                 //bounds check for apple and ground, reset apple on contact
                 if (apple.getPosition().y > screenHeight) {
                     apple.setPosition(static_cast<float>(std::rand() % appleRandOffset), 0.7f);
                 }
                 
-                //activate mrBean randomly once score goes above 30
-                if (score > 30) {
-                    int mrBeanChance = 10;
-                    if (std::rand() % mrBeanChance + 1 == 1) {
-                        mrBeanActive = true;
-                    }
-                    else {
-                        mrBeanChance--;
-                    }
-                }
-                if (mrBeanActive) {
-                    mrBean.move(0.f, mrBeanSpeed);
-                }
-
                 //determine if mr bean will spawn then begin scene transition
                 if (mrBean.getGlobalBounds().intersects(bucket.getGlobalBounds())) {
                     gameStage = 2;
@@ -219,9 +206,7 @@ int main()
                 //clear window and draw elements
                 window.clear(sf::Color::White);
                 window.draw(bucket);
-                if (!mrBeanActive) {
-                    window.draw(apple);
-                }
+                window.draw(apple);
                 window.draw(mrBean);
                 window.draw(scoreText);
                 window.display();
@@ -233,9 +218,8 @@ int main()
                     //once this phase is over remove the bucket and set the background, move to next phase
                     bucket.setScale(1.f,1.f);
                     bucket.setPosition(-500, -500);
-                    mrBean.setScale(4.f, 4.f);
+                    mrBean.setScale(2.f, 2.f);
                     mrBean.setPosition(screenWidth / 2, 0.f - mrBean.getGlobalBounds().height);
-                    mrBeanSpeed = .3f;
                     window.clear();
                     window.draw(background);
                     window.draw(bucket);
@@ -245,8 +229,8 @@ int main()
                 }
                 //grow bucket scale while moving it to the center
                 bucket.setScale(bucketScale, bucketScale);
-                bucketScale += .02f;
-                bucket.setPosition(bucket.getPosition().x - .4f, bucket.getPosition().y - .4f);
+                bucketScale += 1.f;
+                bucket.setPosition(bucket.getPosition().x - 8.f, bucket.getPosition().y - 9.f);
                 time--;
                 window.clear(sf::Color::White);
                 window.draw(bucket);
@@ -255,18 +239,31 @@ int main()
             //transition mr bean falling
             case 3:
                 mrBean.move(0.f, mrBeanSpeed);
-                if (mrBean.getPosition().y > screenHeight) {
-                    mrBean.setPosition(mrBean.getPosition().x, screenHeight - (1.01f * mrBean.getGlobalBounds().height));
-                    mrBeanSpeed = 1.4f;
+                if (mrBean.getGlobalBounds().intersects(platforms[0].getGlobalBounds())){
                     gameStage = 4;
                 }
                 window.clear();
                 window.draw(background);
                 window.draw(mrBean);
+                for (auto& platform : platforms) {
+                    window.draw(platform);
+                }
                 window.display();
                 break;
             //jumping game phase
             case 4:
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
+                    gameStage = 5;
+                }
+                window.clear();
+                window.draw(background);
+                window.draw(mrBean);
+                for (auto& platform : platforms) {
+                    window.draw(platform);
+                }
+                window.display();
+                break;
+            case 5:
                 //handle movement input
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
                     mrBean.move(-mrBeanSpeed, 0.f);
@@ -275,19 +272,39 @@ int main()
                     mrBean.move(mrBeanSpeed, 0.f);
                 }
 
+                //handle collision and gravity
+                for (auto& platform : platforms) {
+                    if (mrBean.getGlobalBounds().intersects(platform.getGlobalBounds()) && mrBean.getPosition().y < platform.getPosition().y && mrBeanJumpSpeed > 0) {
+                        mrBeanJumpSpeed = -15.f;
+                        break;
+                    }
+                }
+                mrBeanJumpSpeed += .4f;
+                mrBean.move(0, mrBeanJumpSpeed);
+                std::cout << "mr bean speed: " << mrBeanJumpSpeed << "coordinates X: " << mrBean.getPosition().x << " Y: " << mrBean.getPosition().y << std::endl;
+                if ((mrBean.getPosition().y > screenHeight)) {
+                    gameStage = 49;
+                }
+
+                for (auto& platform : platforms) {
+                    if (mrBeanJumpSpeed < 0 && mrBean.getPosition().y < (screenHeight / 3) ) {
+                        platform.setPosition(platform.getPosition().x, platform.getPosition().y - mrBeanJumpSpeed);
+                    }
+                    if (platform.getPosition().y > screenHeight) {
+                        std::cout << "test";
+                        platform.setPosition(rand() % static_cast<int>(screenWidth - platformWidth), 0);
+                    }
+                }
+
                 window.clear();
                 window.draw(background);
                 window.draw(mrBean);
-
-                for (auto& platformD : platforms) {
-                    platform.setPosition(platformD.x, platformD.y);
+                for (auto& platform : platforms) {
                     window.draw(platform);
                 }
-                if(mrBean.getGlobalBounds().intersects(platform))
-
                 window.display();
                 break;
-            case 5:
+            case 6:
 
                 break;
             case 49:
