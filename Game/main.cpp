@@ -5,6 +5,18 @@
 #include <string>
 #include <vector>
 
+struct Platform {
+    sf::Sprite sprite;
+    bool hasApple;
+    bool hasGoldenApple;
+
+    Platform(sf::Sprite sprite) {
+        this->sprite = sprite;
+        this->hasApple = false;
+        this->hasGoldenApple = false;
+    }
+};
+
 int main()
 {
     //seed random
@@ -26,7 +38,7 @@ int main()
     unsigned int bucketHeight = bucket.getGlobalBounds().height;
     bucket.setScale(3.f, 3.f);
     bucket.setPosition(screenWidth / 2, screenHeight - (3.1f * bucketHeight));
-    float bucketSpeed = 6.f;
+    float bucketSpeed = 7.f;
 
     //Initialize apple
     sf::Texture appleTexture;
@@ -38,6 +50,7 @@ int main()
     int appleRandOffset = screenWidth - apple.getGlobalBounds().width;
     apple.setPosition(static_cast<float>(std::rand() % appleRandOffset), 0.f - apple.getGlobalBounds().height);
     float appleSpeed = 7.f;
+    bool fallingApple = false;
 
     //Initialize mrBean 
     sf::Texture mrBeanTexture;
@@ -48,7 +61,16 @@ int main()
     mrBean.setScale(1.5f, 1.5f);
     mrBean.setPosition(screenWidth / 2, 0.f - mrBean.getGlobalBounds().height);
     float mrBeanSpeed = 3.f;
-    float mrBeanJumpSpeed = 0.f;
+    float mrBeanJumpSpeed = -14.5f;
+    bool mrBeanActive = false;
+
+    //Initialize golden mrBean
+    sf::Texture goldenBeanTexture;
+    if (!goldenBeanTexture.loadFromFile("assets/goldenmrkidneybean.png")) {
+        return -1;
+    }
+    sf::Sprite goldenBean(goldenBeanTexture);
+    goldenBean.setScale(1.5f, 1.5f);
 
     //Initialize Background
     sf::Texture backgroundTexture;
@@ -64,18 +86,35 @@ int main()
     if (!platformTexture.loadFromFile("assets/platform.png")) {
         return -1;
     }
-    std::vector<sf::Sprite> platforms(10, sf::Sprite(platformTexture));
-    platforms[0].setScale(1.f, 1.f);
-    float platformWidth = platforms[0].getGlobalBounds().width;
-    float platformHeight = platforms[0].getGlobalBounds().height;
-    platforms[0].setPosition((screenWidth / 2) - (platformWidth / 2), screenHeight - (2 * platformHeight));
+    std::vector<Platform> platforms(10, sf::Sprite(platformTexture));
+    platforms[0].sprite.setScale(1.f, 1.f);
+    float platformWidth = platforms[0].sprite.getGlobalBounds().width;
+    float platformHeight = platforms[0].sprite.getGlobalBounds().height;
+    //create platform in the middle that mr bean will always land on
+    platforms[0].sprite.setPosition((screenWidth / 2) - (platformWidth / 2), screenHeight - (2 * platformHeight));
+    //create random platforms above the starter platform
     for (size_t i = 1; i < platforms.size(); i++) {
-        
-        platforms[i].setScale(1.f, 1.f);
+        platforms[i].sprite.setScale(1.f, 1.f);
         float platformX = rand() % static_cast<int>(screenWidth - platformWidth);
         float platformY = screenHeight - ((i + 1) * 75);
-        platforms[i].setPosition(platformX, platformY);
+        platforms[i].sprite.setPosition(platformX, platformY);
     }
+
+    //Initialize platform apples
+    sf::Sprite platformApple(appleTexture);
+    platformApple.setScale(1.4f, 1.4f);
+    platformApple.setPosition(-100.f, -100.f);
+    size_t applePlatform;
+
+    //Initialize golden platform apples
+    sf::Texture goldenAppleTexture;
+    if (!goldenAppleTexture.loadFromFile("assets/goldenapple.png")) {
+        return -1;
+    }
+    sf::Sprite goldenApple(goldenAppleTexture);
+    goldenApple.setScale(1.4f, 1.4f);
+    goldenApple.setPosition(-100.f, -100.f);
+    size_t goldenApplePlatform;
 
     //Initialize fonts
     sf::Font scoreFont; 
@@ -101,12 +140,12 @@ int main()
     scoreText.setFont(scoreFont);
     scoreText.setCharacterSize(48);
     scoreText.setFillColor(sf::Color::Black);
-    scoreText.setPosition((screenWidth / 2), 10.f);
+    scoreText.setPosition(10.f, 10.f);
     
     //initalize score elements
     sf::Text loseText;
     loseText.setFont(loseFont);
-    loseText.setCharacterSize(48);
+    loseText.setCharacterSize(32);
     loseText.setFillColor(sf::Color::Black);
     loseText.setPosition((screenWidth / 4), screenHeight / 5);
 
@@ -119,10 +158,11 @@ int main()
 
     //initialize game control variable
     int gameStage = 3;
-    bool mrBeanActive = false;
     int time = 180;
+    int lives = 3;
+    int gold = 0;
     float bucketScale = 5.f;
-
+    
     //game loop 
     while (window.isOpen())
     {
@@ -201,7 +241,7 @@ int main()
                 }
 
                 //update score
-                scoreText.setString("SCORE \n  " + std::to_string(score));
+                scoreText.setString("SCORE " + std::to_string(score));
                 
                 //clear window and draw elements
                 window.clear(sf::Color::White);
@@ -210,7 +250,6 @@ int main()
                 window.draw(mrBean);
                 window.draw(scoreText);
                 window.display();
-
                 break;
             //transition
             case 2:
@@ -218,7 +257,6 @@ int main()
                     //once this phase is over remove the bucket and set the background, move to next phase
                     bucket.setScale(1.f,1.f);
                     bucket.setPosition(-500, -500);
-                    mrBean.setScale(2.f, 2.f);
                     mrBean.setPosition(screenWidth / 2, 0.f - mrBean.getGlobalBounds().height);
                     window.clear();
                     window.draw(background);
@@ -239,27 +277,29 @@ int main()
             //transition mr bean falling
             case 3:
                 mrBean.move(0.f, mrBeanSpeed);
-                if (mrBean.getGlobalBounds().intersects(platforms[0].getGlobalBounds())){
+                if (mrBean.getGlobalBounds().intersects(platforms[0].sprite.getGlobalBounds())){
                     gameStage = 4;
                 }
                 window.clear();
                 window.draw(background);
                 window.draw(mrBean);
                 for (auto& platform : platforms) {
-                    window.draw(platform);
+                    window.draw(platform.sprite);
                 }
                 window.display();
                 break;
             //jumping game phase
             case 4:
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
+                    mrBeanSpeed = 10.f;
+                    score = 0;
                     gameStage = 5;
                 }
                 window.clear();
                 window.draw(background);
                 window.draw(mrBean);
                 for (auto& platform : platforms) {
-                    window.draw(platform);
+                    window.draw(platform.sprite);
                 }
                 window.display();
                 break;
@@ -271,44 +311,139 @@ int main()
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
                     mrBean.move(mrBeanSpeed, 0.f);
                 }
+                //bounds check for left and right wall on player
+                if (mrBean.getPosition().x <= -mrBean.getGlobalBounds().width) {
+                    mrBean.setPosition(screenWidth, mrBean.getPosition().y);
+                    std::cout << "test 1\n";
+                }
+                if (mrBean.getPosition().x > screenWidth) {
+                    std::cout << "test 2\n";
+                    mrBean.setPosition(0, mrBean.getPosition().y);
+                }
 
-                //handle collision and gravity
+                //handle collisions and gravity for player
                 for (auto& platform : platforms) {
-                    if (mrBean.getGlobalBounds().intersects(platform.getGlobalBounds()) && mrBean.getPosition().y < platform.getPosition().y && mrBeanJumpSpeed > 0) {
-                        mrBeanJumpSpeed = -15.f;
+                    if (mrBean.getGlobalBounds().intersects(platform.sprite.getGlobalBounds()) && (mrBean.getPosition().y + (mrBean.getGlobalBounds().height / 5)) < platform.sprite.getPosition().y && mrBeanJumpSpeed > 0) {
+                        mrBeanJumpSpeed = -14.5f;
                         break;
                     }
                 }
+                if (mrBean.getGlobalBounds().intersects(platformApple.getGlobalBounds())) {
+                    std::cout << "life lost" << std::endl;
+                    lives--;
+                    platformApple.setPosition(-100.f, -100.f);
+                    platforms[applePlatform].hasApple = false;
+                }
+                if (mrBean.getGlobalBounds().intersects(apple.getGlobalBounds())) {
+                    std::cout << "life lost" << std::endl;
+                    lives--;
+                    apple.setPosition(-100.f, -100.f);
+                    fallingApple = false;
+                }
+                if (mrBean.getGlobalBounds().intersects(goldenApple.getGlobalBounds())) {
+                    std::cout << "life gained" << std::endl;
+                    lives++;
+                    gold++;
+                    goldenApple.setPosition(-100.f, -100.f);
+                    platforms[goldenApplePlatform].hasGoldenApple = false;
+                }
+
                 mrBeanJumpSpeed += .4f;
                 mrBean.move(0, mrBeanJumpSpeed);
-                std::cout << "mr bean speed: " << mrBeanJumpSpeed << "coordinates X: " << mrBean.getPosition().x << " Y: " << mrBean.getPosition().y << std::endl;
-                if ((mrBean.getPosition().y > screenHeight)) {
+         
+                //handle movement and spawning for all platforms and their associated apples
+                for (size_t i = 0; i < platforms.size(); i++) {
+                    //when player is moving up and within the top half of the screen
+                    if (mrBeanJumpSpeed < 0 && mrBean.getPosition().y < (screenHeight / 2) ) {
+                        //move all platforms down based on players current speed
+                        platforms[i].sprite.setPosition(platforms[i].sprite.getPosition().x, platforms[i].sprite.getPosition().y - mrBeanJumpSpeed);
+                        
+                        //move all associated apples down as well
+                        if (platforms[i].hasApple) {
+                            platformApple.setPosition(platforms[i].sprite.getPosition().x + (platformWidth / 2), platforms[i].sprite.getPosition().y - platformApple.getGlobalBounds().height);
+                        }
+                        if (platforms[i].hasGoldenApple) {
+                            goldenApple.setPosition(platforms[i].sprite.getPosition().x + (platformWidth / 2), platforms[i].sprite.getPosition().y - goldenApple.getGlobalBounds().height);
+                        }
+                    }
+                    //once a platform goes below the screen 
+                    if (platforms[i].sprite.getPosition().y > screenHeight) {
+                        //respawn that platform on top and increase score
+                        score++;
+                        platforms[i].sprite.setPosition(rand() % static_cast<int>(screenWidth - platformWidth), 0);
+                        
+                        //remove its associated apple from the playfield
+                        if (platforms[i].hasApple) {
+                            platformApple.setPosition(-100.f, -100.f);
+                            platforms[i].hasApple = false;
+                        }
+                        if (platforms[i].hasGoldenApple) {
+                            goldenApple.setPosition(-100.f, -100.f);
+                            platforms[i].hasGoldenApple = false;
+                        }
+
+                        //when the score reaches a certain value attach either an apple or a golden apple to the next spawning platform
+                        if (score % 25 == 0 && score > 0) {
+                            std::cout << "score " << score << std::endl;
+                            platforms[i].hasApple = true;
+                            applePlatform = i;
+                        }
+                        if (score % 40 == 0 && score > 0) {
+                            std::cout << "golden score " << score << std::endl;
+                            platforms[i].hasGoldenApple = true;
+                            goldenApplePlatform = i;
+                        }
+                    }
+                }
+                
+                if (score % 35 == 0 && score > 0 && fallingApple == false) {
+                    fallingApple = true;
+                    apple.setPosition(static_cast<float>(std::rand() % appleRandOffset), -100.f);
+                }
+                if (fallingApple) {
+                    apple.move(0.f, appleSpeed);
+                }
+                //bounds check for apple and ground, reset apple on contact
+                if (apple.getPosition().y > screenHeight) {
+                    apple.setPosition(static_cast<float>(std::rand() % appleRandOffset), -100.f);
+                    fallingApple = false;
+                }
+
+                //handle win/lose conditions
+                if (score > 300) {
+                    if (gold == 3) {
+                        gameStage = 7;
+                    }
+                    else {
+                        gameStage = 6;
+                    }
+                }
+                if ((mrBean.getPosition().y > screenHeight) || lives == 0){
                     gameStage = 49;
                 }
 
-                for (auto& platform : platforms) {
-                    if (mrBeanJumpSpeed < 0 && mrBean.getPosition().y < (screenHeight / 3) ) {
-                        platform.setPosition(platform.getPosition().x, platform.getPosition().y - mrBeanJumpSpeed);
-                    }
-                    if (platform.getPosition().y > screenHeight) {
-                        std::cout << "test";
-                        platform.setPosition(rand() % static_cast<int>(screenWidth - platformWidth), 0);
-                    }
-                }
+                //update score
+                scoreText.setString("SCORE \n  " + std::to_string(score));
 
                 window.clear();
                 window.draw(background);
                 window.draw(mrBean);
                 for (auto& platform : platforms) {
-                    window.draw(platform);
+                    window.draw(platform.sprite);
                 }
+                window.draw(scoreText);
+                window.draw(platformApple);
+                window.draw(goldenApple);
+                window.draw(apple);
                 window.display();
                 break;
             case 6:
 
                 break;
+            case 7:
+                break;
             case 49:
-                loseText.setString("\t\t\t\t\t\tGAME OVER \n\n\n\n\n\n\n\n\n\n   Mr. Kidney Bean did not make it.");
+                loseText.setString("\t\tGAME OVER \n\tMr. Kidney Bean \n\tdid not make it.");
                 window.clear(sf::Color::White);
                 window.draw(loseText);
                 window.display();
