@@ -1,4 +1,5 @@
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include <iostream>
 #include <ctime>
 #include <cstdlib>
@@ -118,6 +119,44 @@ int main()
     //track which platform has the golden apple
     size_t goldenApplePlatform;
 
+    //initialize sounds
+    sf::SoundBuffer thunkBuffer;
+    if (!thunkBuffer.loadFromFile("sounds/thunk.wav")) {
+        return -1;
+    }
+    sf::Sound thunkSound(thunkBuffer);
+
+    sf::SoundBuffer failBuffer;
+    if (!failBuffer.loadFromFile("sounds/fail.wav")) {
+        return -1;
+    }
+    sf::Sound failSound(failBuffer);
+
+    sf::SoundBuffer transitionBuffer;
+    if (!transitionBuffer.loadFromFile("sounds/transition.wav")) {
+        return -1;
+    }
+    sf::Sound transitionSound(transitionBuffer);
+
+    sf::SoundBuffer jumpBuffer;
+    if (!jumpBuffer.loadFromFile("sounds/jump.wav")) {
+        return -1;
+    }
+    sf::Sound jumpSound(jumpBuffer);
+    jumpSound.setVolume(70);
+
+    sf::SoundBuffer crunchBuffer;
+    if (!crunchBuffer.loadFromFile("sounds/crunch.wav")) {
+        return -1;
+    }
+    sf::Sound crunchSound(crunchBuffer);
+
+    sf::SoundBuffer powerupBuffer;
+    if (!powerupBuffer.loadFromFile("sounds/powerup.wav")) {
+        return -1;
+    }
+    sf::Sound powerupSound(powerupBuffer);
+
     //Initialize fonts
     sf::Font scoreFont; 
     if (!scoreFont.loadFromFile("fonts/Segment16CBold.ttf")) {
@@ -169,7 +208,7 @@ int main()
     }
     
     //initialize game control variable
-    int gameStage = 3;
+    int gameStage = 1;
     int time = 180;
     int lives = 3;
     int gold = 0;
@@ -220,6 +259,7 @@ int main()
                 //bounds check for apple and bucket, reset apple on contact
                 if ((apple.getGlobalBounds().intersects(bucket.getGlobalBounds())) && (apple.getPosition().y < bucket.getPosition().y)) {
                     score++;
+                    thunkSound.play();
                     //activate mrBean randomly once score goes above 30
                     if (score > 20) {
                         //if (std::rand() % (50 - score) + 1 == 1) {
@@ -237,9 +277,9 @@ int main()
                 //determine if mr bean will spawn then begin scene transition
                 if (mrBean.getGlobalBounds().intersects(bucket.getGlobalBounds())) {
                     gameStage = 2;
+                    transitionSound.play();
                     apple.setPosition(-100, -100);
                     mrBean.setPosition(-100, -100);
-                    scoreText.setPosition(-100, -100);
                     window.clear(sf::Color::White);
                     window.draw(bucket);
                     window.display();
@@ -248,6 +288,7 @@ int main()
 
                 //if mr bean not saved game over
                 if (mrBean.getPosition().y > screenHeight) {
+                    failSound.play();
                     gameStage = 49;
                     break;
                 }
@@ -342,11 +383,13 @@ int main()
                 for (auto& platform : platforms) {
                     if (mrBean.getGlobalBounds().intersects(platform.sprite.getGlobalBounds()) && (mrBean.getPosition().y + (mrBean.getGlobalBounds().height / 5)) < platform.sprite.getPosition().y && mrBeanJumpSpeed > 0) {
                         mrBeanJumpSpeed = -14.5f;
+                        jumpSound.play();
                         break;
                     }
                 }
                 if (mrBean.getGlobalBounds().intersects(platformApple.getGlobalBounds())) {
                     lives--;
+                    crunchSound.play();
                     if (gold > 0) {
                         gold--;
                     }
@@ -355,6 +398,7 @@ int main()
                 }
                 if (mrBean.getGlobalBounds().intersects(apple.getGlobalBounds())) {
                     lives--;
+                    crunchSound.play();
                     if (gold > 0) {
                         gold--;
                     }
@@ -368,6 +412,7 @@ int main()
                     if (gold < 3) {
                         gold++;
                     }
+                    powerupSound.play();
                     goldenApple.setPosition(-100.f, -100.f);
                     platforms[goldenApplePlatform].hasGoldenApple = false;
                 }
@@ -441,6 +486,7 @@ int main()
                     }
                 }
                 if ((mrBean.getPosition().y > screenHeight) || lives == 0){
+                    failSound.play();
                     gameStage = 49;
                 }
 
