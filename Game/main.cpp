@@ -108,6 +108,15 @@ int main()
     //track which platform has the apple
     size_t applePlatform;
 
+    //Initialize finish line
+    sf::Texture finishLineTexture;
+    if (!finishLineTexture.loadFromFile("assets/finishline.png")) {
+        return -1;
+    }
+    sf::Sprite finishLine(finishLineTexture);
+    finishLine.setPosition(0.f, -1.4 * finishLine.getGlobalBounds().height);
+    bool finishLineActive = false;
+
     //Initialize golden platform apples
     sf::Texture goldenAppleTexture;
     if (!goldenAppleTexture.loadFromFile("assets/goldenapple.png")) {
@@ -157,17 +166,14 @@ int main()
     }
     sf::Sound powerupSound(powerupBuffer);
 
+    //initialize golden win music
+    sf::Music goldenWin;
+    if (!goldenWin.openFromFile("sounds/goldenwin.wav"))
+        return -1; 
+
     //Initialize fonts
     sf::Font scoreFont; 
     if (!scoreFont.loadFromFile("fonts/Segment16CBold.ttf")) {
-        return -1;
-    }
-    sf::Font loseFont;
-    if (!loseFont.loadFromFile("fonts/SquaresBold.otf")) {
-        return -1;
-    }
-    sf::Font winFont;
-    if (!winFont.loadFromFile("fonts/SquaresBold.otf")) {
         return -1;
     }
     sf::Font dialogueFont;
@@ -176,7 +182,7 @@ int main()
     }
 
     //initalize score elements
-    int score = 0;
+    int score = 20;
     sf::Text scoreText; 
     scoreText.setFont(scoreFont);
     scoreText.setCharacterSize(32);
@@ -184,18 +190,11 @@ int main()
     scoreText.setPosition(10.f, 10.f);
     
     //initalize score elements
-    sf::Text loseText;
-    loseText.setFont(loseFont);
-    loseText.setCharacterSize(32);
-    loseText.setFillColor(sf::Color::Black);
-    loseText.setPosition((screenWidth / 4), screenHeight / 5);
-
-    //initalize score elements
-    sf::Text winText;
-    winText.setFont(winFont);
-    winText.setCharacterSize(48);
-    winText.setFillColor(sf::Color::Black);
-    winText.setPosition((screenWidth / 4), screenHeight / 2);
+    sf::Text dialogueText;
+    dialogueText.setFont(dialogueFont);
+    dialogueText.setCharacterSize(28);
+    dialogueText.setFillColor(sf::Color::Black);
+    dialogueText.setPosition(-500, -500);
 
     //initalize health bar elements
     std::vector<sf::Sprite> healthBar(3, sf::Sprite(mrBeanTexture));
@@ -209,9 +208,9 @@ int main()
     
     //initialize game control variable
     int gameStage = 1;
-    int time = 180;
+    int time = 140;
     int lives = 3;
-    int gold = 0;
+    int gold = 3;
     float bucketScale = 5.f;
     
     //game loop 
@@ -252,8 +251,11 @@ int main()
                     //move the apple
                     apple.move(0.f, appleSpeed);
                 }
-                else {
+                else { 
+                    //move mr bean
                     mrBean.move(0.f, mrBeanSpeed);
+                    //move the dialogue on screen
+                    dialogueText.setPosition(250, 250);
                 }
 
                 //bounds check for apple and bucket, reset apple on contact
@@ -289,19 +291,21 @@ int main()
                 //if mr bean not saved game over
                 if (mrBean.getPosition().y > screenHeight) {
                     failSound.play();
-                    gameStage = 49;
+                    gameStage = 8;
                     break;
                 }
 
                 //update score
                 scoreText.setString("SCORE " + std::to_string(score));
-                
+                dialogueText.setString("Wait that isn't an apple!");
+
                 //clear window and draw elements
                 window.clear(sf::Color::White);
                 window.draw(bucket);
                 window.draw(apple);
                 window.draw(mrBean);
                 window.draw(scoreText);
+                window.draw(dialogueText);
                 window.display();
                 break;
             //transition
@@ -320,8 +324,8 @@ int main()
                 }
                 //grow bucket scale while moving it to the center
                 bucket.setScale(bucketScale, bucketScale);
-                bucketScale += 1.f;
-                bucket.setPosition(bucket.getPosition().x - 8.f, bucket.getPosition().y - 9.f);
+                bucketScale += 1.5f;
+                bucket.setPosition(bucket.getPosition().x - 12.f, bucket.getPosition().y - 15.f);
                 time--;
                 window.clear(sf::Color::White);
                 window.draw(bucket);
@@ -350,9 +354,13 @@ int main()
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
                     mrBeanSpeed = 10.f;
                     //reset score
-                    score = 0;
+                    score = 298;
+                    //move dialogue text offscreen
+                    dialogueText.setPosition(-500.f, -500.f);
                     gameStage = 5;
                 }
+                dialogueText.setPosition(120, 250);
+                dialogueText.setString("Mr Kidney Bean you have to escape!\n\t\t    (Press Space to Begin)");
                 //clear screen and draw objects
                 window.clear();
                 window.draw(background);
@@ -360,6 +368,7 @@ int main()
                 for (auto& platform : platforms) {
                     window.draw(platform.sprite);
                 }
+                window.draw(dialogueText);
                 window.display();
                 break;
             //jumper game segment
@@ -378,8 +387,9 @@ int main()
                 if (mrBean.getPosition().x > screenWidth) {
                     mrBean.setPosition(0, mrBean.getPosition().y);
                 }
-
-                //handle collisions and gravity for player
+                //handle collisions and gravity for player 
+                //collision for platforms, if player is landing (ie velocity is negative) and on top of the platform
+                //then set speed upwards and play jump effect
                 for (auto& platform : platforms) {
                     if (mrBean.getGlobalBounds().intersects(platform.sprite.getGlobalBounds()) && (mrBean.getPosition().y + (mrBean.getGlobalBounds().height / 5)) < platform.sprite.getPosition().y && mrBeanJumpSpeed > 0) {
                         mrBeanJumpSpeed = -14.5f;
@@ -387,15 +397,19 @@ int main()
                         break;
                     }
                 }
+                //handle collision for player and apples
+                //if regular apple from the platform is collided with then remove lives, gold and play crunch effect
                 if (mrBean.getGlobalBounds().intersects(platformApple.getGlobalBounds())) {
                     lives--;
                     crunchSound.play();
                     if (gold > 0) {
                         gold--;
                     }
+                    //move the apple offscreen and disable
                     platformApple.setPosition(-100.f, -100.f);
                     platforms[applePlatform].hasApple = false;
                 }
+                //same as previous just with falling apples
                 if (mrBean.getGlobalBounds().intersects(apple.getGlobalBounds())) {
                     lives--;
                     crunchSound.play();
@@ -405,6 +419,7 @@ int main()
                     apple.setPosition(-100.f, -100.f);
                     fallingApple = false;
                 }
+                //if golden apple is collided wit hthen add lives, gold and play powerup effect
                 if (mrBean.getGlobalBounds().intersects(goldenApple.getGlobalBounds())) {
                     if (lives < 3) {
                         lives++;
@@ -413,15 +428,21 @@ int main()
                         gold++;
                     }
                     powerupSound.play();
+                    //move offscreen and disable
                     goldenApple.setPosition(-100.f, -100.f);
                     platforms[goldenApplePlatform].hasGoldenApple = false;
                 }
-
+                //handle gravity and mr bean jump movement
                 mrBeanJumpSpeed += .4f;
                 mrBean.move(0, mrBeanJumpSpeed);
          
                 //handle movement and spawning for all platforms and their associated apples
                 for (size_t i = 0; i < platforms.size(); i++) {
+                    //if the ending finish line is active don't move the platforms at all 
+                    if (finishLineActive) {
+                        break;
+                    }
+                    
                     //when player is moving up and within the top half of the screen
                     if (mrBeanJumpSpeed < 0 && mrBean.getPosition().y < (screenHeight / 2) ) {
                         //move all platforms down based on players current speed
@@ -462,11 +483,15 @@ int main()
                         }
                     }
                 }
-                
+
+                //handle falling apples
+                //determine if a random apple will fall 
                 if (score % 35 == 0 && score > 0 && fallingApple == false) {
                     fallingApple = true;
+                    //place the apple at the top of the screen
                     apple.setPosition(static_cast<float>(std::rand() % appleRandOffset), -100.f);
                 }
+                //if the apple is active move it
                 if (fallingApple) {
                     apple.move(0.f, appleSpeed);
                 }
@@ -475,26 +500,33 @@ int main()
                     apple.setPosition(static_cast<float>(std::rand() % appleRandOffset), -100.f);
                     fallingApple = false;
                 }
-
-                //handle win/lose conditions
-                if (score > 300) {
-                    if (gold == 3) {
-                        gameStage = 7;
-                    }
-                    else {
-                        gameStage = 6;
-                    }
+                //handle win condition sequence
+                if (score > 300 && finishLineActive == false) {
+                    finishLine.setPosition(0.f, finishLine.getPosition().y + 470);
+                    finishLineActive = true;
+                    bucket.setScale(50.f, 50.f);
+                    bucket.setPosition(-(bucket.getGlobalBounds().width / 2), finishLine.getPosition().y + finishLine.getGlobalBounds().height);
                 }
+                if (mrBean.getGlobalBounds().intersects(finishLine.getGlobalBounds())) {
+                    transitionSound.play();
+                    time = 180;
+                    mrBean.setPosition(-500.f, -500.f);
+                    gameStage = 6;
+                }
+                //handle lose sequence
                 if ((mrBean.getPosition().y > screenHeight) || lives == 0){
                     failSound.play();
-                    gameStage = 49;
+                    gameStage = 8;
                 }
 
-                //update score
+                //update score & dialogue
                 scoreText.setString("SCORE \n  " + std::to_string(score));
-
+                dialogueText.setPosition(300.f, 250.f);
+                dialogueText.setString("Mr. Kidney Bean!\nThe end is near!");
+                
                 window.clear();
                 window.draw(background);
+                window.draw(bucket);
                 window.draw(mrBean);
                 for (auto& platform : platforms) {
                     window.draw(platform.sprite);
@@ -502,6 +534,7 @@ int main()
                 window.draw(platformApple);
                 window.draw(goldenApple);
                 window.draw(apple);
+                window.draw(finishLine);
                 for (size_t i = 0; i < lives; i++) {
                     window.draw(healthBar[i]);
                 }
@@ -509,17 +542,61 @@ int main()
                     window.draw(goldBar[i]);
                 }
                 window.draw(scoreText);
+                if (score > 250 && score < 270){
+                    window.draw(dialogueText);
+                }
                 window.display();
                 break;
             case 6:
-
+                if (time == 0) {
+                    if (gold < 3) {
+                        mrBean.setPosition(1.3f * bucket.getPosition().x, bucket.getPosition().y - mrBean.getGlobalBounds().height);
+                        dialogueText.setPosition(145.f, 200.f);
+                        dialogueText.setString("Mr. Kidney Bean escaped the Harvest!");
+                        jumpSound.setVolume(30);
+                    }
+                    else if (gold >= 3) {
+                        mrBean.setTexture(goldenBeanTexture);
+                        mrBean.setPosition(1.3f * bucket.getPosition().x, bucket.getPosition().y - mrBean.getGlobalBounds().height);
+                        dialogueText.setPosition(200.f, 200.f);
+                        dialogueText.setString("Mr. Kidney Bean has Ascended!!!");
+                        mrBeanSpeed = 1.5f;
+                        goldenWin.play();
+                    }
+                    gameStage = 7;
+                }
+                bucket.setPosition(bucket.getPosition().x + 8.7f, bucket.getPosition().y + 2.7f);
+                bucket.setScale(bucket.getScale().x - .25f, bucket.getScale().y - .25f);
+                time--;
+                window.clear(sf::Color::White);
+                window.draw(bucket);
+                window.display();
                 break;
             case 7:
-                break;
-            case 49:
-                loseText.setString("\t\tGAME OVER \n\tMr. Kidney Bean \n\tdid not make it.");
+                if(gold < 3){
+                    if (mrBean.getGlobalBounds().intersects(bucket.getGlobalBounds()) && (mrBean.getPosition().y + (mrBean.getGlobalBounds().height / 5)) < bucket.getPosition().y && mrBeanJumpSpeed > 0) {
+                        mrBeanJumpSpeed = -14.5f;
+                        jumpSound.play();
+                        break;
+                    }
+                    //handle gravity and mr bean jump movement
+                    mrBeanJumpSpeed += .4f;
+                    mrBean.move(0.f, mrBeanJumpSpeed);
+                }else if (gold >= 3) {
+                    mrBean.move(0.f, -mrBeanSpeed);
+                }
                 window.clear(sf::Color::White);
-                window.draw(loseText);
+                window.draw(bucket);
+                window.draw(dialogueText);
+                window.draw(mrBean);
+                window.display();
+                break;
+            case 8:
+                dialogueText.setString("\t\tGAME OVER \n\tMr. Kidney Bean \n\tdid not make it.");
+                dialogueText.setCharacterSize(36);
+                dialogueText.setPosition(200, 350);
+                window.clear(sf::Color::White);
+                window.draw(dialogueText);
                 window.display();
                 break;
             default:
