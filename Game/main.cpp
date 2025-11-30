@@ -45,12 +45,12 @@ int main()
     if (!appleTexture.loadFromFile("assets/apple.png")) {
         return -1;
     }
-    std::vector<sf::Sprite> fallingApples(3, sf::Sprite(appleTexture));
     sf::Sprite apple(appleTexture);
     apple.setScale(2.f, 2.f);
     int appleRandOffset = screenWidth - apple.getGlobalBounds().width;
     apple.setPosition(static_cast<float>(std::rand() % appleRandOffset), 0.f - apple.getGlobalBounds().height);
     float appleSpeed = 7.f;
+    bool fallingApple = false;
 
     //Initialize mrBean 
     sf::Texture mrBeanTexture;
@@ -62,6 +62,7 @@ int main()
     mrBean.setPosition(screenWidth / 2, 0.f - mrBean.getGlobalBounds().height);
     float mrBeanSpeed = 3.f;
     float mrBeanJumpSpeed = -14.5f;
+    bool mrBeanActive = false;
 
     //Initialize golden mrBean
     sf::Texture goldenBeanTexture;
@@ -93,7 +94,6 @@ int main()
     platforms[0].sprite.setPosition((screenWidth / 2) - (platformWidth / 2), screenHeight - (2 * platformHeight));
     //create random platforms above the starter platform
     for (size_t i = 1; i < platforms.size(); i++) {
-        
         platforms[i].sprite.setScale(1.f, 1.f);
         float platformX = rand() % static_cast<int>(screenWidth - platformWidth);
         float platformY = screenHeight - ((i + 1) * 75);
@@ -104,6 +104,7 @@ int main()
     sf::Sprite platformApple(appleTexture);
     platformApple.setScale(1.4f, 1.4f);
     platformApple.setPosition(-100.f, -100.f);
+    size_t applePlatform;
 
     //Initialize golden platform apples
     sf::Texture goldenAppleTexture;
@@ -113,6 +114,7 @@ int main()
     sf::Sprite goldenApple(goldenAppleTexture);
     goldenApple.setScale(1.4f, 1.4f);
     goldenApple.setPosition(-100.f, -100.f);
+    size_t goldenApplePlatform;
 
     //Initialize fonts
     sf::Font scoreFont; 
@@ -156,13 +158,10 @@ int main()
 
     //initialize game control variable
     int gameStage = 3;
-    bool mrBeanActive = false;
     int time = 180;
     int lives = 3;
     int gold = 0;
     float bucketScale = 5.f;
-    size_t applePlatform;
-    size_t goldenApplePlatform;
     
     //game loop 
     while (window.isOpen())
@@ -312,8 +311,17 @@ int main()
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
                     mrBean.move(mrBeanSpeed, 0.f);
                 }
+                //bounds check for left and right wall on player
+                if (mrBean.getPosition().x <= -mrBean.getGlobalBounds().width) {
+                    mrBean.setPosition(screenWidth, mrBean.getPosition().y);
+                    std::cout << "test 1\n";
+                }
+                if (mrBean.getPosition().x > screenWidth) {
+                    std::cout << "test 2\n";
+                    mrBean.setPosition(0, mrBean.getPosition().y);
+                }
 
-                //handle collision and gravity
+                //handle collisions and gravity for player
                 for (auto& platform : platforms) {
                     if (mrBean.getGlobalBounds().intersects(platform.sprite.getGlobalBounds()) && (mrBean.getPosition().y + (mrBean.getGlobalBounds().height / 5)) < platform.sprite.getPosition().y && mrBeanJumpSpeed > 0) {
                         mrBeanJumpSpeed = -14.5f;
@@ -326,21 +334,31 @@ int main()
                     platformApple.setPosition(-100.f, -100.f);
                     platforms[applePlatform].hasApple = false;
                 }
+                if (mrBean.getGlobalBounds().intersects(apple.getGlobalBounds())) {
+                    std::cout << "life lost" << std::endl;
+                    lives--;
+                    apple.setPosition(-100.f, -100.f);
+                    fallingApple = false;
+                }
                 if (mrBean.getGlobalBounds().intersects(goldenApple.getGlobalBounds())) {
                     std::cout << "life gained" << std::endl;
                     lives++;
                     gold++;
                     goldenApple.setPosition(-100.f, -100.f);
-                    platforms[applePlatform].hasGoldenApple = false;
+                    platforms[goldenApplePlatform].hasGoldenApple = false;
                 }
 
                 mrBeanJumpSpeed += .4f;
                 mrBean.move(0, mrBeanJumpSpeed);
          
-                //handle platform movement
+                //handle movement and spawning for all platforms and their associated apples
                 for (size_t i = 0; i < platforms.size(); i++) {
+                    //when player is moving up and within the top half of the screen
                     if (mrBeanJumpSpeed < 0 && mrBean.getPosition().y < (screenHeight / 2) ) {
+                        //move all platforms down based on players current speed
                         platforms[i].sprite.setPosition(platforms[i].sprite.getPosition().x, platforms[i].sprite.getPosition().y - mrBeanJumpSpeed);
+                        
+                        //move all associated apples down as well
                         if (platforms[i].hasApple) {
                             platformApple.setPosition(platforms[i].sprite.getPosition().x + (platformWidth / 2), platforms[i].sprite.getPosition().y - platformApple.getGlobalBounds().height);
                         }
@@ -348,9 +366,13 @@ int main()
                             goldenApple.setPosition(platforms[i].sprite.getPosition().x + (platformWidth / 2), platforms[i].sprite.getPosition().y - goldenApple.getGlobalBounds().height);
                         }
                     }
+                    //once a platform goes below the screen 
                     if (platforms[i].sprite.getPosition().y > screenHeight) {
+                        //respawn that platform on top and increase score
                         score++;
                         platforms[i].sprite.setPosition(rand() % static_cast<int>(screenWidth - platformWidth), 0);
+                        
+                        //remove its associated apple from the playfield
                         if (platforms[i].hasApple) {
                             platformApple.setPosition(-100.f, -100.f);
                             platforms[i].hasApple = false;
@@ -359,12 +381,14 @@ int main()
                             goldenApple.setPosition(-100.f, -100.f);
                             platforms[i].hasGoldenApple = false;
                         }
+
+                        //when the score reaches a certain value attach either an apple or a golden apple to the next spawning platform
                         if (score % 25 == 0 && score > 0) {
                             std::cout << "score " << score << std::endl;
                             platforms[i].hasApple = true;
                             applePlatform = i;
                         }
-                        if (score % 30 == 0 && score > 0) {
+                        if (score % 40 == 0 && score > 0) {
                             std::cout << "golden score " << score << std::endl;
                             platforms[i].hasGoldenApple = true;
                             goldenApplePlatform = i;
@@ -372,6 +396,19 @@ int main()
                     }
                 }
                 
+                if (score % 35 == 0 && score > 0 && fallingApple == false) {
+                    fallingApple = true;
+                    apple.setPosition(static_cast<float>(std::rand() % appleRandOffset), -100.f);
+                }
+                if (fallingApple) {
+                    apple.move(0.f, appleSpeed);
+                }
+                //bounds check for apple and ground, reset apple on contact
+                if (apple.getPosition().y > screenHeight) {
+                    apple.setPosition(static_cast<float>(std::rand() % appleRandOffset), -100.f);
+                    fallingApple = false;
+                }
+
                 //handle win/lose conditions
                 if (score > 300) {
                     if (gold == 3) {
@@ -397,6 +434,7 @@ int main()
                 window.draw(scoreText);
                 window.draw(platformApple);
                 window.draw(goldenApple);
+                window.draw(apple);
                 window.display();
                 break;
             case 6:
