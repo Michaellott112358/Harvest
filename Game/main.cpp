@@ -6,11 +6,13 @@
 #include <string>
 #include <vector>
 
+//contains the sprite used for all platforms and whether or not a specific platform has apples
 struct Platform {
     sf::Sprite sprite;
     bool hasApple;
     bool hasGoldenApple;
 
+    //constructor defaults apples all to false and sets the given sprite
     Platform(sf::Sprite sprite) {
         this->sprite = sprite;
         this->hasApple = false;
@@ -182,7 +184,7 @@ int main()
     }
 
     //initalize score elements
-    int score = 20;
+    int score = 0;
     sf::Text scoreText; 
     scoreText.setFont(scoreFont);
     scoreText.setCharacterSize(32);
@@ -210,7 +212,7 @@ int main()
     int gameStage = 1;
     int time = 140;
     int lives = 3;
-    int gold = 3;
+    int gold = 0;
     float bucketScale = 5.f;
     
     //game loop 
@@ -354,7 +356,7 @@ int main()
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
                     mrBeanSpeed = 10.f;
                     //reset score
-                    score = 298;
+                    score = 0;
                     //move dialogue text offscreen
                     dialogueText.setPosition(-500.f, -500.f);
                     gameStage = 5;
