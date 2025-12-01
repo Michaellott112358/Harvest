@@ -39,6 +39,7 @@ int main()
     sf::Sprite bucket(bucketTexture);
     unsigned int bucketWidth = bucket.getGlobalBounds().width;
     unsigned int bucketHeight = bucket.getGlobalBounds().height;
+    //control variables for the bucket sprite
     bucket.setScale(3.f, 3.f);
     bucket.setPosition(screenWidth / 2, screenHeight - (3.1f * bucketHeight));
     float bucketSpeed = 7.f;
@@ -53,6 +54,7 @@ int main()
     int appleRandOffset = screenWidth - apple.getGlobalBounds().width;
     apple.setPosition(static_cast<float>(std::rand() % appleRandOffset), 0.f - apple.getGlobalBounds().height);
     float appleSpeed = 7.f;
+    //track status of falling apples during jumping segment
     bool fallingApple = false;
 
     //Initialize mrBean 
@@ -63,6 +65,7 @@ int main()
     sf::Sprite mrBean(mrBeanTexture);
     mrBean.setScale(1.5f, 1.5f);
     mrBean.setPosition((screenWidth / 2) - (mrBean.getGlobalBounds().width / 2), 0.f - mrBean.getGlobalBounds().height);
+    //control variables for mr bean
     float mrBeanSpeed = 3.f;
     float mrBeanJumpSpeed = -14.5f;
     bool mrBeanActive = false;
@@ -96,6 +99,7 @@ int main()
     //create platform in the middle that mr bean will always land on
     platforms[0].sprite.setPosition((screenWidth / 2) - (platformWidth / 2), screenHeight - (2 * platformHeight));
     //create random platforms above the starter platform
+    //each platform is 75 pixels from the other at a random x value
     for (size_t i = 1; i < platforms.size(); i++) {
         platforms[i].sprite.setScale(1.f, 1.f);
         float platformX = rand() % static_cast<int>(screenWidth - platformWidth);
@@ -191,7 +195,7 @@ int main()
     scoreText.setFillColor(sf::Color::Black);
     scoreText.setPosition(10.f, 10.f);
     
-    //initalize score elements
+    //initalize dialogue elements
     sf::Text dialogueText;
     dialogueText.setFont(dialogueFont);
     dialogueText.setCharacterSize(28);
@@ -201,6 +205,7 @@ int main()
     //initalize health bar elements
     std::vector<sf::Sprite> healthBar(3, sf::Sprite(mrBeanTexture));
     std::vector<sf::Sprite> goldBar(3, sf::Sprite(goldenBeanTexture));
+    //generate size and positions of health bar elements based on asset size
     for (size_t i = 0; i < 3; i++) {
         healthBar[i].setScale(.7f, .7f);
         goldBar[i].setScale(.7f, .7f);
@@ -264,9 +269,8 @@ int main()
                 if ((apple.getGlobalBounds().intersects(bucket.getGlobalBounds())) && (apple.getPosition().y < bucket.getPosition().y)) {
                     score++;
                     thunkSound.play();
-                    //activate mrBean randomly once score goes above 30
+                    //activate mrBean once score goes above 20
                     if (score > 20) {
-                        //if (std::rand() % (50 - score) + 1 == 1) {
                             mrBeanActive = true;
                             apple.setPosition(-500.f,-500.f);
                     }else {
@@ -310,7 +314,7 @@ int main()
                 window.draw(dialogueText);
                 window.display();
                 break;
-            //transition
+            //transition starts resize bucket until it takes up the whole screen
             case 2:
                 if (time <= 0) {
                     //once this phase is over remove the bucket and set the background, move to next phase
@@ -328,12 +332,13 @@ int main()
                 bucket.setScale(bucketScale, bucketScale);
                 bucketScale += 1.5f;
                 bucket.setPosition(bucket.getPosition().x - 12.f, bucket.getPosition().y - 15.f);
+                //animation duration is controlled by time
                 time--;
                 window.clear(sf::Color::White);
                 window.draw(bucket);
                 window.display();
                 break;
-            //transition mr bean falling
+            //transition mr bean falling towards the starter platform
             case 3:
                 mrBean.move(0.f, mrBeanSpeed);
                 //once mr bean has landed move to next stage
@@ -503,6 +508,7 @@ int main()
                     fallingApple = false;
                 }
                 //handle win condition sequence
+                //once score is over 3 move the finish line down and begin ending 
                 if (score > 300 && finishLineActive == false) {
                     finishLine.setPosition(0.f, finishLine.getPosition().y + 470);
                     finishLineActive = true;
@@ -550,14 +556,17 @@ int main()
                 window.display();
                 break;
             case 6:
+                //time once again controls animation
                 if (time == 0) {
                     if (gold < 3) {
+                        //set mr bean to stay still 
                         mrBean.setPosition(1.3f * bucket.getPosition().x, bucket.getPosition().y - mrBean.getGlobalBounds().height);
                         dialogueText.setPosition(145.f, 200.f);
                         dialogueText.setString("Mr. Kidney Bean escaped the Harvest!");
                         jumpSound.setVolume(30);
                     }
                     else if (gold >= 3) {
+                        //set mr bean to move upwards, change sprite to golden bean
                         mrBean.setTexture(goldenBeanTexture);
                         mrBean.setPosition(1.3f * bucket.getPosition().x, bucket.getPosition().y - mrBean.getGlobalBounds().height);
                         dialogueText.setPosition(200.f, 200.f);
@@ -567,6 +576,7 @@ int main()
                     }
                     gameStage = 7;
                 }
+                //shrink the bucket back towards its original position
                 bucket.setPosition(bucket.getPosition().x + 8.7f, bucket.getPosition().y + 2.7f);
                 bucket.setScale(bucket.getScale().x - .25f, bucket.getScale().y - .25f);
                 time--;
@@ -575,7 +585,9 @@ int main()
                 window.display();
                 break;
             case 7:
+                //end screen mr bean either jumps if a regular win or continues going upwards
                 if(gold < 3){
+                    //mr bean just bounds here, code works same as jump for earlier
                     if (mrBean.getGlobalBounds().intersects(bucket.getGlobalBounds()) && (mrBean.getPosition().y + (mrBean.getGlobalBounds().height / 5)) < bucket.getPosition().y && mrBeanJumpSpeed > 0) {
                         mrBeanJumpSpeed = -14.5f;
                         jumpSound.play();
@@ -587,6 +599,7 @@ int main()
                 }else if (gold >= 3) {
                     mrBean.move(0.f, -mrBeanSpeed);
                 }
+                //change background back to white
                 window.clear(sf::Color::White);
                 window.draw(bucket);
                 window.draw(dialogueText);
@@ -594,6 +607,7 @@ int main()
                 window.display();
                 break;
             case 8:
+                //lose screen
                 dialogueText.setString("\t\tGAME OVER \n\tMr. Kidney Bean \n\tdid not make it.");
                 dialogueText.setCharacterSize(36);
                 dialogueText.setPosition(200, 350);
